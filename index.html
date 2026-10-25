@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zone Manager</title>
+<style>
+:root{--bg:#eef3ee;--surface:#fff;--ink:#17261c;--muted:#566a5c;--line:#d3ddd5;--accent:#2f6b3a;--accent-ink:#fff;--on:#1f8a5b;--off:#8a9a8f;--danger:#b3372f;--soft:#e0efe3;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111a14;--surface:#1a261e;--ink:#e6f1e9;--muted:#9bb0a1;--line:#2b3d30;--accent:#6fcf82;--accent-ink:#0a2410;--on:#4cc38a;--off:#7d9084;--danger:#ef7b73;--soft:#1f3a26}}
+:root[data-theme="dark"]{--bg:#111a14;--surface:#1a261e;--ink:#e6f1e9;--muted:#9bb0a1;--line:#2b3d30;--accent:#6fcf82;--accent-ink:#0a2410;--on:#4cc38a;--off:#7d9084;--danger:#ef7b73;--soft:#1f3a26}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+main{max-width:1020px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:1.9rem;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 22px}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 16px;min-width:110px}
+.stat b{display:block;font-size:1.5rem;line-height:1.2}
+.stat span{color:var(--muted);font-size:.85rem}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:18px}
+.panel h2{font-size:1.05rem;margin:0 0 12px}
+details.panel summary{cursor:pointer;font-weight:600}
+form{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+label{display:flex;flex-direction:column;gap:4px;font-size:.88rem;color:var(--muted)}
+input[type=text],select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;min-width:0}
+#name,#bname{width:240px;max-width:100%}
+#brand{width:260px;max-width:100%}
+.chk{flex-direction:row;align-items:center;gap:8px;color:var(--ink);padding-bottom:10px}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.del{color:var(--danger)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.err{color:var(--danger);font-size:.88rem;min-height:1.3em;margin:8px 0 0}
+.tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.tools input{flex:1;min-width:160px}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:820px}
+th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);font-size:.93rem;vertical-align:middle}
+th{color:var(--muted);font-weight:600;font-size:.84rem}
+td.id{color:var(--muted);width:70px}
+td.d{color:var(--muted);white-space:nowrap}
+.fk{color:var(--muted);font-size:.8rem}
+.badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 11px 3px 9px;font-size:.84rem;border:1px solid var(--line);background:var(--bg);cursor:pointer}
+.badge i{width:8px;height:8px;border-radius:50%;background:var(--off)}
+.badge.on i{background:var(--on)}
+.badge.on{color:var(--on)}
+.act{display:flex;gap:6px}
+.empty{padding:26px;text-align:center;color:var(--muted)}
+.schema th,.schema td{font-size:.88rem}
+code{background:var(--soft);padding:1px 6px;border-radius:5px;font-size:.85rem}
+.mini{margin-top:12px;width:100%;min-width:0}
+.mini td{padding:6px 8px}
+@media (prefers-reduced-motion:no-preference){tr.flash{animation:fl 1.1s}@keyframes fl{from{background:var(--soft)}to{background:transparent}}}
+</style>
+</head>
+<body>
+<main>
+<h1>Zone Manager</h1>
+<p class="sub">Add zones and link each one to a brand. Data is stored in the browser on this device.</p>
+
+<div class="stats" id="stats"></div>
+
+<section class="panel">
+<h2 id="formTitle">Add a zone</h2>
+<form id="f" novalidate>
+<label>zone_name (max 50)
+<input type="text" id="name" maxlength="50" autocomplete="off" placeholder="e.g. North Zone"></label>
+<label>brand_id (brand)
+<select id="brand"></select></label>
+<label class="chk"><input type="checkbox" id="active" checked> is_active</label>
+<button class="primary" type="submit" id="save">Add zone</button>
+<button type="button" id="cancel" hidden>Cancel edit</button>
+</form>
+<p class="err" id="err" role="alert"></p>
+</section>
+
+<details class="panel">
+<summary>Brands (brand table) used for brand_id</summary>
+<form id="bf" novalidate style="margin-top:12px">
+<label>brand_name (max 50)<input type="text" id="bname" maxlength="50" autocomplete="off" placeholder="Brand name"></label>
+<button class="primary" type="submit">Add brand</button>
+</form>
+<p class="err" id="berr" role="alert"></p>
+<div class="wrap"><table class="schema mini"><thead><tr><th>brand_id</th><th>brand_name</th><th>Zones</th><th></th></tr></thead><tbody id="brows"></tbody></table></div>
+</details>
+
+<section class="panel">
+<div class="tools">
+<input type="text" id="q" placeholder="Search by zone name" aria-label="Search zones">
+<select id="fb" aria-label="Filter by brand"></select>
+<select id="flt" aria-label="Filter by status"><option value="all">All zones</option><option value="1">Active only</option><option value="0">Inactive only</option></select>
+</div>
+<div class="wrap"><table>
+<thead><tr><th>zone_id</th><th>zone_name</th><th>brand_id</th><th>is_active</th><th>created_at</th><th>updated_at</th><th>Actions</th></tr></thead>
+<tbody id="rows"></tbody>
+</table></div>
+<div class="empty" id="empty" hidden>No zones match. Add a zone above to get started.</div>
+</section>
+
+<section class="panel">
+<h2>Table design: Zone</h2>
+<div class="wrap"><table class="schema" style="min-width:560px">
+<thead><tr><th>Field Name</th><th>Datatype</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>zone_id</code></td><td>int (PK)</td><td>Stores the unique id of the zone. Auto-numbered here.</td></tr>
+<tr><td><code>zone_name</code></td><td>varchar(50)</td><td>Stores the zone name.</td></tr>
+<tr><td><code>brand_id</code></td><td>int (FK)</td><td>Stores the brand id, referenced from the brand table.</td></tr>
+<tr><td><code>is_active</code></td><td>boolean</td><td>True if the zone is active, False if inactive.</td></tr>
+<tr><td><code>created_at</code></td><td>datetime</td><td>Date and time the zone was first created.</td></tr>
+<tr><td><code>updated_at</code></td><td>datetime</td><td>Date and time the zone was last updated.</td></tr>
+</tbody></table></div>
+</section>
+</main>
+
+<script>
+(function(){
+var KEY="zone_table_v1", zones=[], brands=[], nextZ=1, nextB=1, editId=null, flashId=null;
+var $=function(i){return document.getElementById(i)};
+
+function load(){
+  try{var r=localStorage.getItem(KEY); if(r){var o=JSON.parse(r); zones=o.zones||[]; brands=o.brands||[]; nextZ=o.nextZ||1; nextB=o.nextB||1; return;}}catch(e){}
+  var t=Date.now();
+  brands=[{brand_id:1,brand_name:"Fresh Basket"},{brand_id:2,brand_name:"Sharma Textiles"},{brand_id:3,brand_name:"Town Classic"}];
+  nextB=4;
+  zones=[{zone_id:1,zone_name:"North Zone",brand_id:1,is_active:true,created_at:t,updated_at:t},
+         {zone_id:2,zone_name:"Central Zone",brand_id:2,is_active:true,created_at:t,updated_at:t},
+         {zone_id:3,zone_name:"East Zone",brand_id:3,is_active:false,created_at:t,updated_at:t}];
+  nextZ=4;
+}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify({zones:zones,brands:brands,nextZ:nextZ,nextB:nextB}));}catch(e){}}
+function p2(n){return String(n).padStart(2,"0")}
+function fmt(t){var d=new Date(t);return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate())+" "+p2(d.getHours())+":"+p2(d.getMinutes())+":"+p2(d.getSeconds());}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function fz(id){return zones.filter(function(g){return g.zone_id===id})[0]}
+function fbr(id){return brands.filter(function(c){return c.brand_id===id})[0]}
+function opts(first){return first+brands.map(function(c){return '<option value="'+c.brand_id+'">'+c.brand_id+' – '+esc(c.brand_name)+'</option>'}).join("")}
+
+function renderBrands(){
+  var sel=$("brand").value, fsel=$("fb").value;
+  $("brand").innerHTML=opts('<option value="">Select a brand</option>');
+  $("fb").innerHTML=opts('<option value="all">All brands</option>');
+  $("brand").value=sel; if(!$("brand").value)$("brand").value="";
+  $("fb").value=fsel||"all"; if(!$("fb").value)$("fb").value="all";
+  $("brows").innerHTML=brands.map(function(c){
+    var n=zones.filter(function(z){return z.brand_id===c.brand_id}).length;
+    return '<tr><td>'+c.brand_id+'</td><td>'+esc(c.brand_name)+'</td><td>'+n+'</td><td><button class="del" data-b="'+c.brand_id+'">Delete</button></td></tr>';
+  }).join("");
+}
+function render(){
+  var q=$("q").value.trim().toLowerCase(), f=$("flt").value, b=$("fb").value;
+  var list=zones.filter(function(g){
+    return (!q||g.zone_name.toLowerCase().indexOf(q)>-1)&&(f==="all"||(f==="1")===g.is_active)&&(b==="all"||String(g.brand_id)===b);
+  });
+  $("rows").innerHTML=list.map(function(g){
+    var br=fbr(g.brand_id);
+    return '<tr'+(g.zone_id===flashId?' class="flash"':'')+'><td class="id">'+g.zone_id+'</td><td>'+esc(g.zone_name)+'</td>'
+    +'<td>'+g.brand_id+' <span class="fk">'+(br?esc(br.brand_name):"")+'</span></td>'
+    +'<td><button class="badge '+(g.is_active?'on':'')+'" data-a="toggle" data-id="'+g.zone_id+'" title="Click to change status"><i></i>'+(g.is_active?'True':'False')+'</button></td>'
+    +'<td class="d">'+fmt(g.created_at)+'</td><td class="d">'+fmt(g.updated_at)+'</td>'
+    +'<td><div class="act"><button data-a="edit" data-id="'+g.zone_id+'">Edit</button><button class="del" data-a="del" data-id="'+g.zone_id+'">Delete</button></div></td></tr>';
+  }).join("");
+  $("empty").hidden=list.length>0;
+  var act=zones.filter(function(g){return g.is_active}).length;
+  $("stats").innerHTML='<div class="stat"><b>'+zones.length+'</b><span>Total zones</span></div><div class="stat"><b>'+act+'</b><span>Active</span></div><div class="stat"><b>'+(zones.length-act)+'</b><span>Inactive</span></div><div class="stat"><b>'+brands.length+'</b><span>Brands</span></div>';
+}
+function resetForm(){editId=null;$("name").value="";$("brand").value="";$("active").checked=true;$("save").textContent="Add zone";$("formTitle").textContent="Add a zone";$("cancel").hidden=true;$("err").textContent="";}
+
+$("f").addEventListener("submit",function(e){
+  e.preventDefault();
+  var name=$("name").value.trim(), bid=+$("brand").value, err=$("err");
+  if(!name){err.textContent="Enter the zone name.";return;}
+  if(name.length>50){err.textContent="Zone name must be 50 characters or fewer.";return;}
+  if(!bid||!fbr(bid)){err.textContent="Select the brand this zone belongs to. Add a brand below if the list is empty.";return;}
+  var now=Date.now();
+  if(editId){var g=fz(editId);g.zone_name=name;g.brand_id=bid;g.is_active=$("active").checked;g.updated_at=now;flashId=g.zone_id;}
+  else{zones.push({zone_id:nextZ,zone_name:name,brand_id:bid,is_active:$("active").checked,created_at:now,updated_at:now});flashId=nextZ;nextZ++;}
+  persist();resetForm();renderBrands();render();
+});
+$("bf").addEventListener("submit",function(e){
+  e.preventDefault();
+  var n=$("bname").value.trim(), err=$("berr");
+  if(!n){err.textContent="Enter the brand name.";return;}
+  if(brands.some(function(c){return c.brand_name.toLowerCase()===n.toLowerCase()})){err.textContent="A brand with this name already exists.";return;}
+  brands.push({brand_id:nextB++,brand_name:n});
+  $("bname").value="";err.textContent="";
+  persist();renderBrands();render();
+});
+$("brows").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-b]");if(!b)return;
+  var id=+b.getAttribute("data-b");
+  if(zones.some(function(x){return x.brand_id===id})){$("berr").textContent="This brand still has zones. Delete or move its zones first.";return;}
+  brands=brands.filter(function(c){return c.brand_id!==id});$("berr").textContent="";
+  persist();renderBrands();render();
+});
+$("cancel").addEventListener("click",resetForm);
+$("q").addEventListener("input",render);
+$("flt").addEventListener("change",render);
+$("fb").addEventListener("change",render);
+$("rows").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-a]");if(!b)return;
+  var id=+b.getAttribute("data-id"),g=fz(id),a=b.getAttribute("data-a");
+  if(a==="toggle"){g.is_active=!g.is_active;g.updated_at=Date.now();flashId=id;persist();render();}
+  else if(a==="edit"){editId=id;$("name").value=g.zone_name;$("brand").value=String(g.brand_id);$("active").checked=g.is_active;$("save").textContent="Save changes";$("formTitle").textContent="Edit zone #"+id;$("cancel").hidden=false;$("err").textContent="";$("name").focus();window.scrollTo({top:0,behavior:"smooth"});}
+  else if(a==="del"){if(confirm('Delete zone "'+g.zone_name+'"?')){zones=zones.filter(function(x){return x.zone_id!==id});if(editId===id)resetForm();persist();renderBrands();render();}}
+});
+load();renderBrands();render();
+})();
+</script>
+</body>
+</html>
